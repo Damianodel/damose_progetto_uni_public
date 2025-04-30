@@ -1,5 +1,4 @@
 package gestione_dati_gtfs_offline;
-
 import gestione_dati_gtfs_offline.calendar.Calendar;
 import gestione_dati_gtfs_offline.calendar.CalendarParser;
 import gestione_dati_gtfs_offline.route.Route;
@@ -17,11 +16,10 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        String stopsFile = "C:/Users/damiano/Desktop/progetto java damose/rome_static_gtfs_test/stops.txt";   // Percorso al file GTFS stops.txt
         String routesFile = "C:\\Users\\damiano\\Desktop\\progetto java damose\\rome_static_gtfs_test\\routes.txt"; // Percorso al file GTFS routes.txt
         String CalendarFile = "C:\\Users\\damiano\\Desktop\\progetto java damose\\rome_static_gtfs_test\\calendar.txt";
         String stopTimesFilePath = "C:\\Users\\damiano\\Desktop\\progetto java damose\\rome_static_gtfs_test\\stop_times.txt";
-        String TripsFile = "C:\\Users\\damiano\\Desktop\\progetto java damose\\rome_static_gtfs_test\\trips.txt";
+        String TripsFile = "C:\\Users\\damiano\\IdeaProjects\\damose progetto uni\\src\\testi_per_gtfs\\trips.txt";
         String ShapeFile = "C:\\Users\\damiano\\Desktop\\progetto java damose\\rome_static_gtfs_test\\shapes.txt";
         List<Stop> stops = StopParser.parseStops();
         List<Route> routes = RouteParser.parseRoutes(routesFile);
@@ -46,7 +44,7 @@ public class Main {
         }
 
         System.out.println("\n=== Calendar Services ===");
-        for (gestione_dati_gtfs_offline.calendar.Calendar service : Calendar) {
+        for (Calendar service : Calendar) {
             System.out.println(service);
         }
 

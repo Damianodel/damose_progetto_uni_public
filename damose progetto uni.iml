@@ -17,5 +17,6 @@
         <jarDirectory url="jar://$USER_HOME$/Desktop/JMapViewer-1.14.1-Demo.jar!/" recursive="false" />
       </library>
     </orderEntry>
+    <orderEntry type="library" name="google.transit.gtfs.realtime.bindings" level="project" />
   </component>
 </module>

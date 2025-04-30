@@ -1,5 +1,7 @@
 package GUI_Roma;
-import gestione_dati_gtfs_offline.stop.StopParser;
+
+import risorse_mappa.GTFSReader;
+
 import java.util.List;
 import javax.swing.*;
 import java.awt.*;
@@ -12,19 +14,19 @@ import javax.imageio.ImageIO;
 
 public class InteractiveMap extends JPanel {
     private BufferedImage mapImage;
-    private double latitude = 41.9028;  // Latitudine iniziale (Roma)
-    private double longitude = 12.4964; // Longitudine iniziale (Roma)
-    private int zoom = 12;              // Livello di zoom iniziale
+    private double latitude = 41.9028;  // Initial latitude (Rome)
+    private double longitude = 12.4964; // Initial longitude (Rome)
+    private int zoom = 12;              // Initial zoom level
     private int prevX, prevY;
     private boolean dragging = false;
     private JTextField searchField;
-    private HashMap<String, double[]> locationData; // Dizionario delle posizioni
-    private StopInfoPanel infoPanel; // Pannello Info Fermata
+    private HashMap<String, double[]> locationData; // Location data dictionary
+    private StopInfoPanel infoPanel; // Stop info panel
 
     public InteractiveMap(JTextField searchField, StopInfoPanel infoPanel) {
         this.searchField = searchField;
         this.infoPanel = infoPanel;
-        locationData = StopParser.getLocationData();
+        locationData = GTFSReader.getLocationData();
 
         loadMap();
 
@@ -35,6 +37,7 @@ public class InteractiveMap extends JPanel {
             loadMap();
             repaint();
         });
+
 
         addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
@@ -89,35 +92,45 @@ public class InteractiveMap extends JPanel {
             g.drawImage(mapImage, 0, 0, this.getWidth(), this.getHeight(), this);
         }
     }
-
     public void searchLocation(String location) {
-        if (locationData.containsKey(location)) {
-            double[] coords = locationData.get(location);
+        System.out.println("Searching location: " + location);
+        if (locationData.containsKey(location) || GTFSReader.stopNameToIdMap.containsKey(location)) {
+            String stopId = GTFSReader.stopNameToIdMap.getOrDefault(location, location);
+            double[] coords = locationData.get(stopId);
             latitude = coords[0];
             longitude = coords[1];
             loadMap();
             repaint();
 
-            // Aggiorna il pannello info fermata
-            infoPanel.updateInfo(location, coords[0], coords[1]);
+            // Update the stop info panel
+            infoPanel.updateInfo(location, stopId, coords[0], coords[1]);
+
+            // Get all routes for the stop
+            List<String> routes = GTFSReader.getRoutesForStop(stopId);
+            for (String routeId : routes) {
+                // Get all stops for each route
+                List<String> stops = GTFSReader.getAllStopsForRoute(routeId);
+                System.out.println("Stops for route " + routeId + ": " + stops);
+                // Display or process the stops as needed
+            }
         } else {
-            JOptionPane.showMessageDialog(null, "Luogo non trovato nei dati!", "Errore", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, "Location not found in data!", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Mappa Interattiva con Ricerca Locale");
+            JFrame frame = new JFrame("Interactive Map with Local Search");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(900, 600);
 
             JTextField searchField = new JTextField(20);
-            JButton searchButton = new JButton("Cerca");
+            JButton searchButton = new JButton("Search");
             JPanel searchPanel = new JPanel();
             searchPanel.add(searchField);
             searchPanel.add(searchButton);
 
-            StopInfoPanel infoPanel = new StopInfoPanel(); // Pannello laterale con info fermata
+            StopInfoPanel infoPanel = new StopInfoPanel(); // Side panel with stop info
             InteractiveMap mapPanel = new InteractiveMap(searchField, infoPanel);
 
             searchButton.addActionListener(e -> {
@@ -128,7 +141,7 @@ public class InteractiveMap extends JPanel {
             });
 
             JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, mapPanel, infoPanel);
-            splitPane.setDividerLocation(650); // Dimensione iniziale della mappa
+            splitPane.setDividerLocation(650); // Initial size of the map
 
             frame.setLayout(new BorderLayout());
             frame.add(searchPanel, BorderLayout.NORTH);
@@ -139,23 +152,22 @@ public class InteractiveMap extends JPanel {
     }
 }
 
-// -----------------------------
-// Pannello laterale "Info Fermata"
-// -----------------------------
 class StopInfoPanel extends JPanel {
-    private JLabel titleLabel;
-    private JLabel coordinatesLabel;
-    private JTextArea linesTextArea;   // Area di testo per le linee disponibili
-    private JTextArea scheduleTextArea; // Area di testo per gli orari
+    private final JLabel titleLabel;
+    private final JLabel coordinatesLabel;
+    private final JLabel stopIdLabel;
+    private final JTextArea linesTextArea;   // Text area for available lines
+    private final JTextArea scheduleTextArea; // Text area for schedules
 
     public StopInfoPanel() {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setPreferredSize(new Dimension(300, 0)); // Larghezza del pannello
+        setPreferredSize(new Dimension(300, 0)); // Width of the panel
 
-        titleLabel = new JLabel("Info Fermata");
+        titleLabel = new JLabel("Stop Info");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
 
         coordinatesLabel = new JLabel("Lat: - , Lon: -");
+        stopIdLabel = new JLabel("Stop ID: -");
 
         linesTextArea = new JTextArea(5, 20);
         linesTextArea.setEditable(false);
@@ -171,22 +183,37 @@ class StopInfoPanel extends JPanel {
 
         add(titleLabel);
         add(Box.createRigidArea(new Dimension(0, 10)));
+        add(stopIdLabel);
+        add(Box.createRigidArea(new Dimension(0, 10)));
         add(coordinatesLabel);
         add(Box.createRigidArea(new Dimension(0, 10)));
-        add(new JLabel("🚍 Linee disponibili:"));
+        add(new JLabel("🚍 Available Lines:"));
         add(linesScrollPane);
-        add(new JLabel("⏰ Orari di passaggio:"));
+        add(new JLabel("⏰ Schedules:"));
         add(scheduleScrollPane);
     }
 
-    public void updateInfo(String stopName, double lat, double lon) {
-        titleLabel.setText("Fermata: " + stopName);
+    public void updateInfo(String stopName, String stopId, double lat, double lon) {
+        System.out.println("Updating info for stop: " + stopName);
+        titleLabel.setText("Stop: " + stopName);
+        stopIdLabel.setText("Stop ID: " + stopId);
         coordinatesLabel.setText("Lat: " + lat + ", Lon: " + lon);
 
-        // Ottieni i dati dal parser
-        List<String> lines = StopParser.getLinesForStop(stopName);
-        List<String> schedule = StopParser.getScheduleForStop(stopName);
+        // Get data from the parser
+        List<String> lines = GTFSReader.getLinesForStop(stopId);
+        List<String> schedule = GTFSReader.getScheduleForStop(stopId);
 
+        StringBuilder linesText = new StringBuilder();
+        for (String line : lines) {
+            linesText.append(line).append("\n");
+        }
 
+        StringBuilder scheduleText = new StringBuilder();
+        for (String time : schedule) {
+            scheduleText.append(time).append("\n");
+        }
+
+        linesTextArea.setText(linesText.toString());
+        scheduleTextArea.setText(scheduleText.toString());
     }
 }

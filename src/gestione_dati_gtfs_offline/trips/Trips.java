@@ -13,7 +13,7 @@ public class Trips {
     private int exceptional;
 
     public Trips(String routeId, String serviceId, String tripId, String tripHeadsign, String tripShortName,
-                int directionId, String blockId, String shapeId, int wheelchairAccessible) {
+                 int directionId, String blockId, String shapeId, int wheelchairAccessible) {
         this.routeId = routeId;
         this.serviceId = serviceId;
         this.tripId = tripId;
